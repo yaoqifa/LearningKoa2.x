@@ -8,12 +8,12 @@
 入口是 koa/lib 下的application.js这个文件。这个文件里我做了详细的注释。先看module.export，导出的就是一个Class Application,
 Application继承了Emitter, 使用时就是new 它，得到一个koa实例，它能做到的事： 传入中间件，监听端口生成一个服务器实例，然后能拿到http请求，请求逐层的经过middleware数组，经过后的结果
 交给handleRespose处理响应，response 里就是具体返回内容。
-阅读Application的过程就是：找到module.export, 看到constructor，进入listen方法，发现 
+阅读Application的过程就是：找到module.export, 看到constructor，进入listen方法，发现
 
 ```
 const server = http.createServer(this.callback());
 ```
-这行代码相当于 
+这行代码相当于
 ```
 http.createServer(function (req, res) {
   res.send()
@@ -164,7 +164,7 @@ delegate(proto, 'request')
   ```
   感兴趣可以跟进delegate里看源码...
 
-  
+
 ### Koa2.x 源码阅读 request 和 response
   打开koa/lib/request.js 文件,发现module.export 导出一个对象，这个对象包含一系列get set方法，其实就是koa封装的一些api，通读完这些api，就能做基本的开发了。
   打开koa/lib/response.js 文件也一样。具体api的作用，我都做了中文注释。
@@ -228,4 +228,4 @@ function dispatch (i) { // 一种尾递归
 从dispatch(0)开始， i=== middleware.length 结束。重点就try里的那行代码，返回了一个Promise，执行fn(context, dispatch.bind(null, i + 1), fn就是middleware数组里的每一项，每项都是一个async函数，也就是上上面里koa服务器代码的mid123,这里把context传给mid1 的ctx，dispatch.bind(null, i + 1) 传给next, dispatch.bind(null, i + 1) 执行了，就返回mid2(context, dispatch.bind(null, i + 1))) 这样...直到完成。
 分析下koa服务器的代码执行过程，这种尾递归在内存里是种调用栈的形式，所以在mid1里执行到await next() 就暂停，控制权交给下一个fn，也就是mid2,此时body写入了1，mid2里执行到await next() 再交给mid3.此时body写入了2,执行mid3，body写入了3,写入了6，结束了吗？并没有，这相当于入完栈,然后到出栈过程，控制权回到mid2的await next()后面，body 写入5，mid2出栈，控制权回到mid1的await next()后面，body 写入4。 所以最终body里写入了 123654...
 
-### koa2.x 源码分析到此结束，说明的不准确请海涵。以上..
+### koa2.x 源码分析告一段落，如有遗漏，可以联系我补充..

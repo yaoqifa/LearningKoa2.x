@@ -6,12 +6,12 @@
  */
 
 // Application 是个Class，new 它后，能做到的事： 传入中间件，监听端口生成一个服务器实例，然后能拿到http请求，请求逐层的经过middleware数组，经过后的结果
-// 交给handleRespose处理响应，response 里就是具体返回内容
+// 交给handleResponse处理响应，response 里就是具体返回内容
 
 const isGeneratorFunction = require('is-generator-function'); // 判断当前传入的是不是标准的generator Function
 const debug = require('debug')('koa:application'); // 轻量级debug工具
 const onFinished = require('on-finished'); // 事件监听，当一个http请求完成/关闭，调用注册好的回掉函数
-const response = require('./response'); 
+const response = require('./response');
 const compose = require('koa-compose'); // 中间件的函数数组，所有中间件都是数组，数组里每一项都是函数，递归执行每个函数，前一个函数的结果作为后一个函数的输出
 const isJSON = require('koa-is-json');
 const context = require('./context'); // 上下文
