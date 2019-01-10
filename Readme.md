@@ -229,3 +229,104 @@ function dispatch (i) { // 一种尾递归
 分析下koa服务器的代码执行过程，这种尾递归在内存里是种调用栈的形式，所以在mid1里执行到await next() 就暂停，控制权交给下一个fn，也就是mid2,此时body写入了1，mid2里执行到await next() 再交给mid3.此时body写入了2,执行mid3，body写入了3,写入了6，结束了吗？并没有，这相当于入完栈,然后到出栈过程，控制权回到mid2的await next()后面，body 写入5，mid2出栈，控制权回到mid1的await next()后面，body 写入4。 所以最终body里写入了 123654...
 
 ### koa2.x 源码分析告一段落，如有遗漏，可以联系我补充..
+### 常用koa中间件
+1. koa-static 下面的代码，完成了一个静态服务器的搭建，static 目录下的文件，就能支持通过路径访问
+```
+const static_ = require('koa-static')
+app.use(static_(
+    path.join(__dirname, './static')
+))
+```
+
+2. koa-router 新建一个目录 urls 存放我们的控制器，然后这些控制器通过 app.js 的 koa-router 模块加载
+```
+// 路由模块使用前需要先安装和实例化
+const Router = require('koa-router')
+const router = new Router()
+// 首页
+app.use(async (ctx, next) => {
+    if (ctx.request.path === '/') {
+      ctx.response.status = 200
+      ctx.response.body = 'index'
+    }
+    await next()
+})
+
+// 其他页面通过 router 加载
+let urls = fs.readdirSync(__dirname + '/urls')
+urls.forEach((element) => {
+    let module = require(__dirname + '/urls/' + element)
+    /*
+      urls 下面的每个文件负责一个特定的功能，分开管理
+      通过 fs.readdirSync 读取 urls 目录下的所有文件名，挂载到 router 上面
+    */
+    router.use('/' + element.replace('.js', ''), module.routes(), module.allowedMethods())
+})
+app.use(router.routes())
+```
+3. koa-bodyparser 这是一个解析 POST 数据的模块，解决了 Koa 原生 ctx 访问 POST 数据不太便利的问题
+```
+const bodyParser = require('koa-bodyparser')
+app.use(bodyParser())
+app.use(async (ctx, next) => {
+ // 载入使用，post 的数据被挂载到 ctx.request.body，是一个 key => value 的 集合
+  await next()
+})
+```
+4. koa-views 一个视图管理模块，它的灵活度很高
+```
+const views = require('koa-views')
+const path = require('path')
+// 配置视图
+app.use(views(path.join(__dirname, './views'), {
+    extension: 'ejs'
+}))
+app.use(async (ctx, next) => {
+  await ctx.render('index', {message: 'index'}) // render 渲染方法，这里加载到 views/index.ejs 文件 | 第二参数是传参到模版
+  await next()
+})
+```
+
+5. koa 封装个连接mysql方法
+```
+// utils/mysql.js
+const mysql = require('mysql')
+let pools = {}
+let query = (sql,callback, host = '127.0.0.1') => {
+    if (!pools.hasOwnProperty(host)) {
+        pools[host] = mysql.createPool({
+            host: host,
+            port: '3306',
+            user: 'root',
+            password: ''
+
+        })
+    }
+    pools[host].getConnection((err, connection) => {
+        connection.query(sql, (err, results) => {
+            callback(err, results)
+            connection.release()
+        })
+    })
+}
+module.exports = query
+```
+```
+/*
+ 通过一个中间件，把所有的工具关联起来
+*/
+app.use(async (ctx, next) => {
+  ctx.util = {
+    mysql: require('./utils/mysql')
+  }
+    await next()
+})
+
+// 操作数据库
+app.use(async (ctx, next) => {
+  ctx.util.mysql('select * from dbname.dbtable', function(err, results) {
+    console.log(results)
+  })
+  await next()
+})
+```
